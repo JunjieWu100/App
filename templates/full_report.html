@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Full Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Full Round Report</h1>
+
+<h2>Per-Region Sales</h2>
+<table border="1">
+<tr><th>Company</th><th>Region</th><th>Units Sold</th><th>Price</th><th>Market Share</th><th>Revenue</th></tr>
+{{region_rows}}
+</table>
+
+<h2>Cost Breakdown</h2>
+<table border="1">
+<tr><th>Company</th><th>Production</th><th>Marketing</th><th>R&D</th><th>HR</th><th>Total Costs</th></tr>
+{{cost_rows}}
+</table>
+
+<h2>Profit Waterfall Chart</h2>
+<canvas id="waterfallChart" width="800" height="400"></canvas>
+<a href="/">Back to Game</a>
+
+<script>
+{{chart_data_js}}
+
+const colors = {
+  revenue: '#2e7d32',
+  production: '#c62828',
+  marketing: '#ad1457',
+  rd: '#6a1b9a',
+  hr: '#ef6c00',
+  profit: '#1565c0'
+};
+
+const labels = [];
+const baseData = [];
+const deltaData = [];
+const colorsPerBar = [];
+
+function pushStep(company, stepLabel, base, delta, color) {
+  labels.push(`${company}: ${stepLabel}`);
+  baseData.push(base);
+  deltaData.push(delta);
+  colorsPerBar.push(color);
+}
+
+chartData.companies.forEach((company) => {
+  const d = chartData.data[company];
+  let cum = 0;
+  pushStep(company, 'Revenue', 0, d.revenue, colors.revenue); cum += d.revenue;
+  pushStep(company, 'Production', cum, -d.production, colors.production); cum += -d.production;
+  pushStep(company, 'Marketing', cum, -d.marketing, colors.marketing); cum += -d.marketing;
+  pushStep(company, 'R&D', cum, -d.rd, colors.rd); cum += -d.rd;
+  pushStep(company, 'HR', cum, -d.hr, colors.hr); cum += -d.hr;
+  pushStep(company, 'Profit', 0, d.profit, colors.profit);
+});
+
+new Chart(document.getElementById('waterfallChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      { label: 'Base', data: baseData, backgroundColor: 'rgba(0,0,0,0)', stack: 'waterfall' },
+      { label: 'Delta', data: deltaData, backgroundColor: (ctx) => colorsPerBar[ctx.dataIndex], stack: 'waterfall' }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, ticks: { callback: (v) => `$${(v/1_000_000).toFixed(0)}M` } }
+    }
+  }
+});
+</script>
+</body>
+</html>
