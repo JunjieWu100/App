@@ -1,122 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Business Game</title>
+    <meta charset="UTF-8">
+    <title>Business Simulation Game</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial; margin: 20px; }
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #2c3e50; }
         table { border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #aaa; padding: 5px; text-align: center; }
-        th { background: #eee; }
-        #results, #charts { margin-top: 20px; }
+        th, td { border: 1px solid #999; padding: 8px; text-align: center; }
+        h2 { margin-top: 40px; color: #2c3e50; }
+        ul { line-height: 1.6; }
+        #results { margin-top: 20px; }
     </style>
 </head>
 <body>
-<h1>Business Simulation Game</h1>
+    <h1>Business Simulation Game</h1>
 
-<form id="decisionForm">
     <h2>Your Decisions</h2>
-    <table>
-        <tr><th></th><th>NA</th><th>EU</th><th>APAC</th></tr>
-        <tr>
-            <td>Price</td>
-            <td><input name="na_price" type="number" value="600"></td>
-            <td><input name="eu_price" type="number" value="600"></td>
-            <td><input name="apac_price" type="number" value="600"></td>
-        </tr>
-        <tr>
-            <td>Marketing</td>
-            <td><input name="na_mkt" type="number" value="5"></td>
-            <td><input name="eu_mkt" type="number" value="3"></td>
-            <td><input name="apac_mkt" type="number" value="4"></td>
-        </tr>
-        <tr>
-            <td>Production Allocation</td>
-            <td><input name="na_alloc" type="number" value="60000"></td>
-            <td><input name="eu_alloc" type="number" value="60000"></td>
-            <td><input name="apac_alloc" type="number" value="80000"></td>
-        </tr>
-    </table>
+    <form id="decisionForm">
+        <table>
+            <tr>
+                <th></th>
+                <th>NA</th>
+                <th>EU</th>
+                <th>APAC</th>
+            </tr>
+            <tr>
+                <td>Price</td>
+                <td><input type="number" name="na_price" value="600" min="500" max="700"></td>
+                <td><input type="number" name="eu_price" value="600" min="500" max="700"></td>
+                <td><input type="number" name="apac_price" value="600" min="500" max="700"></td>
+            </tr>
+            <tr>
+                <td>Marketing</td>
+                <td><input type="number" name="na_mkt" value="5" min="2" max="6"></td>
+                <td><input type="number" name="eu_mkt" value="3" min="2" max="6"></td>
+                <td><input type="number" name="apac_mkt" value="4" min="2" max="6"></td>
+            </tr>
+            <tr>
+                <td>Production Allocation</td>
+                <td><input type="number" name="na_alloc" value="60000" min="30000" max="100000"></td>
+                <td><input type="number" name="eu_alloc" value="60000" min="30000" max="100000"></td>
+                <td><input type="number" name="apac_alloc" value="80000" min="30000" max="100000"></td>
+            </tr>
+        </table>
+        R&amp;D: <input type="number" name="rd" value="10" min="0" max="10">
+        HR: <input type="number" name="hr" value="5" min="0" max="10">
+        <br><br>
+        <button type="submit">Next Round</button>
+    </form>
+
     <p>
-        R&D: <input name="rd" type="number" value="10">
-        HR: <input name="hr" type="number" value="5">
+        <a href="/full-report">View Full Report</a> |
+        <a href="/history">View Round History</a> |
+        <a href="/rules" target="_blank">📖 View Rules</a>
     </p>
-    <button type="submit">Submit Decisions</button>
-</form>
 
-<div id="results"></div>
-<div id="charts">
-    <canvas id="marketShareChart" width="400" height="200"></canvas>
-    <canvas id="sviChart" width="400" height="200"></canvas>
-</div>
+    <div id="results">
+        <canvas id="chart" width="600" height="300"></canvas>
+        <div id="final"></div>
+    </div>
 
-<p>
-    <a href="/full-report" target="_blank">View Full Report</a> |
-    <a href="/history" target="_blank">View Round History</a>
-</p>
-
-<script>
-document.getElementById("decisionForm").addEventListener("submit", async function(e){
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const res = await fetch("/submit-ajax", { method: "POST", body: formData });
-    const data = await res.json();
-
-    let html = "<h2>Round Results</h2><table><tr><th>Company</th><th>Revenue</th><th>Profit</th><th>Cash</th><th>SVI</th><th>Market Share</th></tr>";
-    for (let company in data.results) {
-        let r = data.results[company];
-        html += `<tr>
-            <td>${company}</td>
-            <td>$${(r.Revenue/1_000_000).toFixed(2)}M</td>
-            <td>$${(r.Profit/1_000_000).toFixed(2)}M</td>
-            <td>$${(r.Cash/1_000_000).toFixed(2)}M</td>
-            <td>${r.SVI.toFixed(2)}</td>
-            <td>${(r.Share*100).toFixed(1)}%</td>
-        </tr>`;
-    }
-    html += "</table>";
-    document.getElementById("results").innerHTML = html;
-
-    updateCharts(data.history);
-});
-
-let marketChart, sviChart;
-function updateCharts(history){
-    const labels = history.rounds;
-    const datasetsShare = [], datasetsSVI = [];
-
-    for (let company in history.market_share) {
-        datasetsShare.push({
-            label: company,
-            data: history.market_share[company],
-            borderColor: randomColor(),
-            fill: false
+    <script>
+        const ctx = document.getElementById("chart").getContext("2d");
+        const chart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [
+                    { label: "You", borderColor: "blue", fill: false, data: [] },
+                    { label: "Competitor A", borderColor: "red", fill: false, data: [] },
+                    { label: "Competitor B", borderColor: "green", fill: false, data: [] }
+                ]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
         });
-    }
-    for (let company in history.svi) {
-        datasetsSVI.push({
-            label: company,
-            data: history.svi[company],
-            borderColor: randomColor(),
-            fill: false
+
+        document.getElementById("decisionForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            fetch("/submit-ajax", { method: "POST", body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.history) {
+                    chart.data.labels = data.history.rounds;
+                    chart.data.datasets[0].data = data.history.svi["You"];
+                    chart.data.datasets[1].data = data.history.svi["Competitor A"];
+                    chart.data.datasets[2].data = data.history.svi["Competitor B"];
+                    chart.update();
+                }
+
+                if (data.game_over) {
+                    document.querySelector("button").disabled = true;
+                    let resultHTML = "<h3>🏆 Final Placements</h3><ol>";
+                    data.placements.forEach(p => {
+                        resultHTML += `<li>${p[0]} – SVI: ${p[1].toFixed(2)}</li>`;
+                    });
+                    resultHTML += "</ol>";
+                    resultHTML += `<button id="newGameBtn">🔄 New Game</button>`;
+                    document.getElementById("final").innerHTML = resultHTML;
+
+                    document.getElementById("newGameBtn").addEventListener("click", () => {
+                        fetch("/reset-game", { method: "POST" })
+                        .then(res => res.json())
+                        .then(() => {
+                            location.reload();
+                        });
+                    });
+                }
+            });
         });
-    }
-
-    if (marketChart) marketChart.destroy();
-    marketChart = new Chart(document.getElementById("marketShareChart"), {
-        type: 'line',
-        data: { labels, datasets: datasetsShare }
-    });
-    if (sviChart) sviChart.destroy();
-    sviChart = new Chart(document.getElementById("sviChart"), {
-        type: 'line',
-        data: { labels, datasets: datasetsSVI }
-    });
-}
-
-function randomColor(){
-    return `hsl(${Math.floor(Math.random()*360)},70%,50%)`;
-}
-</script>
+    </script>
 </body>
 </html>
